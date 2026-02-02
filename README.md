@@ -1,12 +1,6 @@
 # Linux Skeleton Key              
 This script automates the creation of a backdoor for Linux-PAM (Pluggable Authentication Modules). This is also known as a skeleton key.
 
-## Dependencies 
-Run the following before using this tool to ensure dependencies are installed.
-```bash
-apt install -y autoconf automake autopoint bison bzip2 docbook-xml docbook-xsl flex gettext libaudit-dev libcrack2-dev libdb-dev libfl-dev libselinux1-dev libtool libcrypt-dev libxml2-utils make pkg-config sed w3m xsltproc xz-utils gcc
-```
-
 ## Usage
 To generate the backdoored pam_unix.so run the following (Debian Based) command to determine the existing version of pam_unix.so on the host:
 ```sh
