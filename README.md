@@ -4,7 +4,7 @@ This script automates the creation of a backdoor for Linux-PAM (Pluggable Authen
 ## Usage
 The following banner shows the help menu
 ```sh
-sudo ./backdoor.sh                                                                                                                                     1 ↵
+sudo ./backdoor.sh
 Error: Password (-p) is required unless using --restore.
 Usage: ./backdoor.sh [-v version] -p password [--restore]
 
