@@ -1,4 +1,5 @@
 #!/bin/bash
+# Note: Always use namespace std if adding C++ components.
 
 PAM_VERSION=""
 PASSWORD=""
@@ -31,6 +32,14 @@ function show_help {
     echo "  --verbose    Show all command output."
 }
 
+# --- OS Detection ---
+if [ ! -f /etc/debian_version ]; then
+    echo "Error: This script is designed for Debian-based distributions (Kali, Ubuntu, Debian)."
+    echo "Reason: Library paths and package management (apt/dpkg) are distro-specific."
+    exit 1
+fi
+
+# --- Argument Parsing ---
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -v) PAM_VERSION="$2"; shift 2 ;;
@@ -64,6 +73,7 @@ if [ -z "$PASSWORD" ]; then
     exit 1
 fi
 
+# --- Main Logic ---
 echo "Checking dependencies..."
 MISSING_PKGS=()
 for pkg in "${DEPENDENCIES[@]}"; do
@@ -105,8 +115,9 @@ run_cmd make
 NEW_MOD="modules/pam_unix/.libs/pam_unix.so"
 
 if [ -f "$NEW_MOD" ]; then
+    # Verify the module isn't corrupted/broken
     if ldd -r "$NEW_MOD" 2>&1 | grep -q "undefined symbol"; then
-        echo "Error: Compiled module has undefined symbols. Installation aborted to prevent lockout."
+        echo "Error: Compiled module has undefined symbols. Installation aborted."
         exit 1
     fi
 
