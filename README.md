@@ -2,7 +2,7 @@
 This script automates the creation of a backdoor for Linux-PAM (Pluggable Authentication Modules). This is also known as a skeleton key.
 
 ## Usage
-The following banner shows the help menu
+The following banner shows the help menu:
 ```sh
 sudo ./backdoor.sh
 Error: Password (-p) is required unless using --restore.
