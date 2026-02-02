@@ -1,5 +1,4 @@
 #!/bin/bash
-# Note: Always use namespace std if adding C++ components.
 
 PAM_VERSION=""
 PASSWORD=""
