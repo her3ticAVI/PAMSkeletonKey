@@ -28,7 +28,7 @@ Options:
   --restore     Restore original PAM from backup.
   --verbose     Show all command output.
 ```
-After that reboot your system and you can login to the system using an existing user, and the previously configured password.
+
 Make sure to clear bash history so others can't see the skeleton key password:
 ```sh
 cat /dev/null > ~/.bash_history && history -c
