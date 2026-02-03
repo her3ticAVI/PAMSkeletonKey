@@ -1,5 +1,5 @@
 <div align="center">
-<a href="https://blackhillsinfosec.com"><img width="100%" src="https://static.wikia.nocookie.net/elderscrolls/images/f/f9/TESV_Skeleton_Key_Crop.png" alt="Skyrim Key!" /></a>
+<a href="https://blackhillsinfosec.com"><img width="50%" src="https://static.wikia.nocookie.net/elderscrolls/images/f/f9/TESV_Skeleton_Key_Crop.png" alt="Skyrim Key!" /></a>
 <hr>
 
 # PAM Skeleton Key              
