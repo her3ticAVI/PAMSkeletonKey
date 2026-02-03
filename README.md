@@ -31,3 +31,7 @@ cat /dev/null > ~/.bash_history && history -c && exit
 ## Resources
 - https://attack.mitre.org/software/S0007/
 - https://github.com/segmentati0nf4ult/linux-pam-backdoor
+
+<div align="center">
+
+Made with ❤️ by The Heretic
