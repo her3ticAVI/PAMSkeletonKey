@@ -8,8 +8,7 @@ This script automates the creation of a backdoor for Linux-PAM (Pluggable Authen
 <div align="left">
 
 ## Usage
-Prerequisites:
-You must be root.
+> Note: You must be root for this tool to be of use to you. This tool is good for privilege escalation, lateral movement, and persistence.
 
 Download the tool silently:
 ```sh
