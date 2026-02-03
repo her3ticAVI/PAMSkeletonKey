@@ -2,7 +2,7 @@
 <a href="https://blackhillsinfosec.com"><img width="30%" src="https://static.wikia.nocookie.net/elderscrolls/images/f/f9/TESV_Skeleton_Key_Crop.png" alt="Skyrim Key!" /></a>
 <hr>
 
-# PAM Skeleton Key              
+# `PAM Skeleton Key`    
 This script automates the creation of a backdoor for Linux-PAM (Pluggable Authentication Modules). This is also known as a skeleton key.
 
 <div align="left">
