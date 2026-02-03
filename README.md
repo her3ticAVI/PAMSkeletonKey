@@ -8,7 +8,7 @@ This script automates the creation of a backdoor for Linux-PAM (Pluggable Authen
 <div align="left">
 
 ## Usage
-> Note: You must be root for this tool to be of use to you. This tool is good for privilege escalation, lateral movement, and persistence.
+> Note: You must be root for this tool to be of use to you. This tool only works on Debian base systems that use APT as the package manager. This tool is good for privilege escalation, lateral movement, and persistence. Messing with PAM files can cause permanent damage to host, use at your own discresion.
 
 Download the tool silently:
 ```sh
