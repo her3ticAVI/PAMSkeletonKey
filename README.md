@@ -1,6 +1,6 @@
 <img src="https://static.wikia.nocookie.net/elderscrolls/images/f/f9/TESV_Skeleton_Key_Crop.png" width="400" height="400">
 
-# Linux Skeleton Key              
+# PAM Skeleton Key              
 This script automates the creation of a backdoor for Linux-PAM (Pluggable Authentication Modules). This is also known as a skeleton key.
 
 ## Usage
